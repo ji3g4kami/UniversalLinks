@@ -27,11 +27,37 @@
 /// THE SOFTWARE.
 
 import UIKit
+import CoreNFC
 
 class ComputersController: UIViewController {
+  @IBOutlet weak var linkImage: UIImageView!
+  
+  var session: NFCNDEFReaderSession?
+  
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    let tap = UITapGestureRecognizer(target: self, action: #selector(scanNFC(_:)))
+    linkImage.addGestureRecognizer(tap)
+  }
+  
+  
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
     navigationController?.isNavigationBarHidden = true
+  }
+  
+  override func viewWillDisappear(_ animated: Bool) {
+      super.viewWillDisappear(animated)
+      session = nil
+  }
+  
+  @objc func scanNFC(_ sender: UITapGestureRecognizer? = nil) {
+    guard session == nil else {
+        return
+    }
+    session = NFCNDEFReaderSession(delegate: self, queue: nil, invalidateAfterFirstRead: true)
+    session?.alertMessage = "Hold your iPhone near the item to learn more about it."
+    session?.begin()
   }
   
   // MARK: - Navigation
@@ -39,6 +65,8 @@ class ComputersController: UIViewController {
   override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
     if segue.identifier == "segueToDetail" {
       if let viewController = segue.destination as? ComputerDetailController, let item = (sender as? ComputerCell)?.item {
+        viewController.item = item
+      } else if let viewController = segue.destination as? ComputerDetailController, let item = sender as? Computer {
         viewController.item = item
       }
     }
@@ -66,4 +94,44 @@ extension ComputersController: UITableViewDelegate {
   func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
     tableView.deselectRow(at: indexPath, animated: true)
   }
+}
+
+extension ComputersController: NFCNDEFReaderSessionDelegate {
+  func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
+    if let readerError = error as? NFCReaderError {
+        if readerError.code != .readerSessionInvalidationErrorFirstNDEFTagRead && readerError.code != .readerSessionInvalidationErrorUserCanceled {
+            let alertController = UIAlertController(
+                title: "Session Invalidated",
+                message: error.localizedDescription,
+                preferredStyle: .alert
+            )
+            alertController.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+            DispatchQueue.main.async {
+                self.present(alertController, animated: true)
+            }
+        }
+    }
+    
+    self.session = nil
+  }
+  
+  func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
+    guard let ndefMessage = messages.first,
+        let record = ndefMessage.records.first,
+        record.typeNameFormat == .absoluteURI || record.typeNameFormat == .nfcWellKnown,
+        let payloadText = String(data: record.payload, encoding: .utf8),
+        let html = payloadText.split(separator: "/").last else {
+        return
+    }
+    
+    if let computer = ItemHandler.sharedInstance.items.filter({ $0.path == html }).first {
+      DispatchQueue.main.async { [unowned self] in
+        self.performSegue(withIdentifier: "segueToDetail", sender: computer)
+      }
+    }
+    
+    self.session = nil
+  }
+  
+  
 }

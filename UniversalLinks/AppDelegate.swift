@@ -40,20 +40,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   
   func presentDetailViewController(_ computer: Computer) {
     let storyboard = UIStoryboard(name: "Main", bundle: nil)
-    
-    guard
-      let detailVC = storyboard
-        .instantiateViewController(withIdentifier: "DetailController")
-          as? ComputerDetailController
-//      let navigationVC = storyboard
-//        .instantiateViewController(withIdentifier: "NavigationController")
-//          as? UINavigationController
-    else { return }
-    
-    UIApplication.shared.keyWindow?.rootViewController?.present(detailVC, animated: true, completion: nil)
-//    detailVC.item = computer
-//    navigationVC.modalPresentationStyle = .formSheet
-//    navigationVC.pushViewController(detailVC, animated: true)
+    let computerController = storyboard
+    .instantiateViewController(withIdentifier: "ComputersController") as! ComputersController
+    let detailController = storyboard
+    .instantiateViewController(withIdentifier: "DetailController") as! ComputerDetailController
+    detailController.item = computer
+    let navController = UINavigationController(rootViewController: computerController)
+    window?.rootViewController = navController
+    navController.pushViewController(detailController, animated: true)
   }
   
   func application(_ application: UIApplication,
@@ -74,7 +68,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     // 3
-    if let webpageUrl = URL(string: "http://rw-universal-links-final.herokuapp.com") {
+    if let webpageUrl = URL(string: "https://david-universal-link.herokuapp.com/") {
       application.open(webpageUrl)
       return false
     }
